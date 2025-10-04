@@ -75,14 +75,12 @@ A Flutter application designed to streamline the creation and management of even
 * **View Events**: After creating events, you can view them in the events list.
 * **Manage Events**: Edit or delete events as needed.
 
-## Contributing
+  ## vedio
 
-Contributions are welcome! Please fork the repository, make your changes, and submit a pull request.
+https://github.com/user-attachments/assets/59138346-e6e9-4bcf-8a90-dccda3dc237f
 
-## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+  
 
----
 
-Feel free to customize this template further based on the specific features and setup of your project.
+
