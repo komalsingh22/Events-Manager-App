@@ -53,6 +53,10 @@ class AuthService {
     required UserRole role,
     String? clubId,
   }) async {
+    // Validate that role is either student or superAdmin
+    if (role != UserRole.student && role != UserRole.superAdmin) {
+      return AuthResult.error('Invalid user role');
+    }
     try {
       // Check if user already exists
       final existingUser = _users.where(
@@ -170,28 +174,6 @@ class AuthService {
         role: UserRole.superAdmin,
         isActive: true,
         createdAt: DateTime.now().subtract(const Duration(days: 30)),
-        updatedAt: DateTime.now(),
-      ),
-      User(
-        id: '2',
-        email: 'tech.club@university.edu',
-        firstName: 'Tech',
-        lastName: 'Admin',
-        role: UserRole.clubAdmin,
-        clubId: '1',
-        isActive: true,
-        createdAt: DateTime.now().subtract(const Duration(days: 20)),
-        updatedAt: DateTime.now(),
-      ),
-      User(
-        id: '3',
-        email: 'sports.club@university.edu',
-        firstName: 'Sports',
-        lastName: 'Admin',
-        role: UserRole.clubAdmin,
-        clubId: '2',
-        isActive: true,
-        createdAt: DateTime.now().subtract(const Duration(days: 15)),
         updatedAt: DateTime.now(),
       ),
       User(

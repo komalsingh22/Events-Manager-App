@@ -252,7 +252,9 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
             ),
           ),
-          ...UserRole.values.map(
+          ...UserRole.values.where((role) => 
+              role == UserRole.student || role == UserRole.superAdmin
+            ).map(
             (role) => RadioListTile<UserRole>(
               title: Text(role.displayName),
               subtitle: Text(_getRoleDescription(role)),
@@ -276,8 +278,6 @@ class _SignupScreenState extends State<SignupScreen> {
     switch (role) {
       case UserRole.student:
         return 'Discover and register for events';
-      case UserRole.clubAdmin:
-        return 'Manage events for your club';
       case UserRole.superAdmin:
         return 'Full administrative access';
     }

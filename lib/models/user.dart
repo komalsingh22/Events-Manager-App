@@ -85,15 +85,13 @@ class User {
   }
 }
 
-enum UserRole { student, clubAdmin, superAdmin }
+enum UserRole { student, superAdmin }
 
 extension UserRoleExtension on UserRole {
   String get displayName {
     switch (this) {
       case UserRole.student:
         return 'Student';
-      case UserRole.clubAdmin:
-        return 'Club Admin';
       case UserRole.superAdmin:
         return 'Super Admin';
     }

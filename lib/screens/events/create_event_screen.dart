@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:campus/models/club.dart';
 import 'package:campus/models/user.dart';
 import 'package:campus/services/auth_service.dart';
+import 'package:campus/services/club_service.dart';
 import 'package:campus/services/event_service.dart';
 import 'package:campus/utils/constants.dart';
-import 'package:campus/utils/validators.dart';
 import 'package:campus/utils/date_formatter.dart';
+import 'package:campus/utils/validators.dart';
 import 'package:campus/widgets/custom_app_bar.dart';
 
 class CreateEventScreen extends StatefulWidget {
@@ -16,20 +18,55 @@ class CreateEventScreen extends StatefulWidget {
 
 class _CreateEventScreenState extends State<CreateEventScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _authService = AuthService();
+  final _eventService = EventService();
+  final _clubService = ClubService();
+
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
   final _capacityController = TextEditingController();
   final _imageUrlController = TextEditingController();
 
-  final _authService = AuthService();
-  final _eventService = EventService();
-
   DateTime? _startDateTime;
   DateTime? _endDateTime;
   String? _selectedCategory;
+  String? _selectedClubId;
+  List<Club> _clubs = [];
   bool _isFeatured = false;
   bool _isLoading = false;
+  bool _isLoadingClubs = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClubs();
+  }
+
+  Future<void> _loadClubs() async {
+    setState(() {
+      _isLoadingClubs = true;
+    });
+
+    final result = await _clubService.getClubs();
+    if (result.isSuccess && result.data != null) {
+      setState(() {
+        _clubs = result.data!;
+        // Set default selected club for club admins
+        final currentUser = _authService.currentUser;
+        if (currentUser != null && currentUser.clubId != null) {
+          _selectedClubId = currentUser.clubId;
+        } else if (_clubs.isNotEmpty) {
+          // Default selection for super admins
+          _selectedClubId = _clubs.first.id;
+        }
+      });
+    }
+
+    setState(() {
+      _isLoadingClubs = false;
+    });
+  }
 
   @override
   void dispose() {
@@ -75,6 +112,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               _buildLocationAndCapacity(theme),
               const SizedBox(height: 24),
               _buildCategorySection(theme),
+              const SizedBox(height: 24),
+              _buildClubSection(theme),
               const SizedBox(height: 24),
               _buildImageSection(theme),
               const SizedBox(height: 24),
@@ -326,6 +365,57 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
   }
 
+  Widget _buildClubSection(ThemeData theme) {
+    final currentUser = _authService.currentUser;
+
+    // Only show club selection for super admins
+    if (currentUser?.role != UserRole.superAdmin) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Club',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _isLoadingClubs
+            ? const Center(child: CircularProgressIndicator())
+            : DropdownButtonFormField<String>(
+                initialValue: _selectedClubId,
+                decoration: const InputDecoration(
+                  labelText: 'Select Club*',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.group),
+                ),
+                items: _clubs
+                    .map(
+                      (club) => DropdownMenuItem(
+                        value: club.id,
+                        child: Text(club.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedClubId = value;
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please select a club';
+                  }
+                  return null;
+                },
+              ),
+      ],
+    );
+  }
+
   Widget _buildFeaturedSection(ThemeData theme) {
     final currentUser = _authService.currentUser;
     final canSetFeatured = currentUser?.role.canManageAllEvents ?? false;
@@ -423,11 +513,18 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
 
     final currentUser = _authService.currentUser;
-    if (currentUser == null || currentUser.clubId == null) {
-      _showErrorDialog(
-        'Error',
-        'You must be associated with a club to create events.',
-      );
+    if (currentUser == null) {
+      _showErrorDialog('Error', 'You must be logged in to create events.');
+      return;
+    }
+
+    // Super admins can create events for any club
+    if (currentUser.role == UserRole.superAdmin) {
+      // Allow super admins to continue
+    }
+    // Students cannot create events
+    else if (currentUser.role == UserRole.student) {
+      _showErrorDialog('Error', 'Only administrators can create events.');
       return;
     }
 
@@ -435,10 +532,29 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       _isLoading = true;
     });
 
+    // For super admins, use the selected club ID from dropdown
+    String clubId;
+    if (currentUser.role == UserRole.superAdmin) {
+      if (_selectedClubId == null) {
+        _showErrorDialog('Error', 'Please select a club for this event.');
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+      clubId = _selectedClubId!;
+    } else {
+      // This should never happen as students can't create events
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
     final result = await _eventService.createEvent(
       title: _titleController.text.trim(),
       description: _descriptionController.text.trim(),
-      clubId: currentUser.clubId!,
+      clubId: clubId,
       location: _locationController.text.trim(),
       startTime: _startDateTime!,
       endTime: _endDateTime!,
