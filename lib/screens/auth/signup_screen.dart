@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:campus/models/user.dart';
+import 'package:campus/models/club.dart';
 import 'package:campus/services/auth_service.dart';
+import 'package:campus/services/club_service.dart';
 import 'package:campus/screens/auth/login_screen.dart';
 import 'package:campus/screens/home/home_screen.dart';
 import 'package:campus/utils/validators.dart';
@@ -20,11 +22,39 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _authService = AuthService();
+  final _clubService = ClubService();
 
   bool _isLoading = false;
+  bool _isLoadingClubs = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   UserRole _selectedRole = UserRole.student;
+  String? _selectedClubId;
+  List<Club> _clubs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClubs();
+  }
+
+  Future<void> _loadClubs() async {
+    setState(() {
+      _isLoadingClubs = true;
+    });
+
+    await _clubService.initialize();
+    final result = await _clubService.getClubs();
+
+    if (mounted) {
+      setState(() {
+        _isLoadingClubs = false;
+        if (result.isSuccess && result.data != null) {
+          _clubs = result.data!;
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -119,6 +149,10 @@ class _SignupScreenState extends State<SignupScreen> {
           _buildConfirmPasswordField(theme),
           const SizedBox(height: 16),
           _buildRoleSelector(theme),
+          if (_selectedRole == UserRole.clubAdmin) ...[
+            const SizedBox(height: 16),
+            _buildClubSelector(theme),
+          ],
         ],
       ),
     );
@@ -262,6 +296,10 @@ class _SignupScreenState extends State<SignupScreen> {
                 if (value != null) {
                   setState(() {
                     _selectedRole = value;
+                    // Reset club selection when role changes
+                    if (value != UserRole.clubAdmin) {
+                      _selectedClubId = null;
+                    }
                   });
                 }
               },
@@ -281,6 +319,93 @@ class _SignupScreenState extends State<SignupScreen> {
       case UserRole.superAdmin:
         return 'Full administrative access';
     }
+  }
+
+  Widget _buildClubSelector(ThemeData theme) {
+    if (_isLoadingClubs) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: theme.colorScheme.outline.withValues(alpha: 0.3),
+          ),
+          borderRadius: BorderRadius.circular(12),
+          color: theme.colorScheme.surfaceContainer,
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.3),
+        ),
+        borderRadius: BorderRadius.circular(12),
+        color: theme.colorScheme.surfaceContainer,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              'Select Your Club*',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+          if (_clubs.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'No clubs available. Please contact an administrator.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: DropdownButtonFormField<String>(
+                value: _selectedClubId,
+                decoration: InputDecoration(
+                  hintText: 'Choose a club',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: theme.colorScheme.surface,
+                ),
+                items: _clubs
+                    .map(
+                      (club) => DropdownMenuItem(
+                        value: club.id,
+                        child: Text(club.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedClubId = value;
+                  });
+                },
+                validator: (value) {
+                  if (_selectedRole == UserRole.clubAdmin &&
+                      (value == null || value.isEmpty)) {
+                    return 'Please select a club';
+                  }
+                  return null;
+                },
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSignupButton(ThemeData theme) {
@@ -360,6 +485,7 @@ class _SignupScreenState extends State<SignupScreen> {
       firstName: _firstNameController.text.trim(),
       lastName: _lastNameController.text.trim(),
       role: _selectedRole,
+      clubId: _selectedRole == UserRole.clubAdmin ? _selectedClubId : null,
     );
 
     if (mounted) {
