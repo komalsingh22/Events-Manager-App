@@ -1,0 +1,227 @@
+# GatherUp - Campus Club Events Management App
+
+## Architecture Overview
+
+### Technical Stack
+- **Frontend**: Flutter (Mobile)
+- **Backend**: Express.js + Node.js
+- **Database**: PostgreSQL
+- **Authentication**: JWT-based authentication
+- **Local Storage**: SharedPreferences for token management
+
+## Database Schema (PostgreSQL)
+
+### Users Table
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  first_name VARCHAR(100) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
+  role VARCHAR(20) NOT NULL CHECK (role IN ('student', 'club_admin', 'super_admin')),
+  club_id INTEGER REFERENCES clubs(id),
+  avatar_url TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Clubs Table
+```sql
+CREATE TABLE clubs (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  logo_url TEXT,
+  category VARCHAR(100),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Events Table
+```sql
+CREATE TABLE events (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  club_id INTEGER REFERENCES clubs(id) NOT NULL,
+  location VARCHAR(255) NOT NULL,
+  start_time TIMESTAMP NOT NULL,
+  end_time TIMESTAMP NOT NULL,
+  capacity INTEGER NOT NULL,
+  category VARCHAR(100),
+  image_url TEXT,
+  is_featured BOOLEAN DEFAULT FALSE,
+  created_by INTEGER REFERENCES users(id) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Event Registrations Table
+```sql
+CREATE TABLE event_registrations (
+  id SERIAL PRIMARY KEY,
+  event_id INTEGER REFERENCES events(id) NOT NULL,
+  user_id INTEGER REFERENCES users(id) NOT NULL,
+  registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(event_id, user_id)
+);
+```
+
+## Flutter App Architecture
+
+### Core Directories Structure
+```
+lib/
+├── main.dart
+├── theme.dart
+├── models/
+│   ├── user.dart
+│   ├── club.dart
+│   ├── event.dart
+│   └── event_registration.dart
+├── services/
+│   ├── auth_service.dart
+│   ├── event_service.dart
+│   ├── user_service.dart
+│   └── api_service.dart
+├── screens/
+│   ├── auth/
+│   │   ├── login_screen.dart
+│   │   └── signup_screen.dart
+│   ├── home/
+│   │   └── home_screen.dart
+│   ├── events/
+│   │   ├── event_details_screen.dart
+│   │   └── create_event_screen.dart
+│   ├── dashboard/
+│   │   └── club_dashboard_screen.dart
+│   └── profile/
+│       └── profile_screen.dart
+├── widgets/
+│   ├── custom_app_bar.dart
+│   ├── event_card.dart
+│   ├── banner_carousel.dart
+│   └── search_filter_bar.dart
+└── utils/
+    ├── constants.dart
+    ├── validators.dart
+    └── date_formatter.dart
+```
+
+## Implementation Plan
+
+### Phase 1: Foundation & Authentication
+1. **Dependencies Setup**
+   - HTTP client for API calls
+   - SharedPreferences for token storage
+   - Image loading and caching
+   - Date/time formatting
+   - Form validation
+
+2. **Data Models**
+   - User model with role-based properties
+   - Club model with basic information
+   - Event model with full event details
+   - EventRegistration model for tracking
+
+3. **Services Layer**
+   - ApiService: Base HTTP client with JWT handling
+   - AuthService: Login, signup, token management
+   - EventService: CRUD operations for events
+   - UserService: Profile management
+
+4. **Authentication Flow**
+   - Login/Signup screens with validation
+   - JWT token storage and auto-refresh
+   - Role-based navigation guards
+
+### Phase 2: Core Features
+1. **Home Screen**
+   - Featured events banner carousel
+   - Upcoming events list with infinite scroll
+   - Search and filter functionality
+   - Category-based filtering
+
+2. **Event Management**
+   - Event details screen with registration
+   - Real-time capacity tracking
+   - Attendees list for admins
+
+3. **Club Dashboard (Admin Only)**
+   - Create/edit/delete events
+   - View registration analytics
+   - Manage event capacity
+
+### Phase 3: User Experience
+1. **Profile Management**
+   - User profile editing
+   - Registered events history
+   - Avatar upload capability
+
+2. **UI/UX Enhancements**
+   - Smooth animations and transitions
+   - Loading states and error handling
+   - Offline capability with local caching
+
+## API Endpoints (Express.js)
+
+### Authentication
+- `POST /auth/login` - User login
+- `POST /auth/signup` - User registration
+- `POST /auth/refresh` - Token refresh
+- `GET /auth/me` - Get current user
+
+### Events
+- `GET /events` - List events (with filters)
+- `GET /events/:id` - Event details
+- `POST /events` - Create event (admin only)
+- `PUT /events/:id` - Update event (admin only)
+- `DELETE /events/:id` - Delete event (admin only)
+- `POST /events/:id/register` - Register for event
+- `DELETE /events/:id/register` - Unregister from event
+
+### Users
+- `GET /users/profile` - Get user profile
+- `PUT /users/profile` - Update profile
+- `GET /users/:id/events` - User's registered events
+
+### Clubs
+- `GET /clubs` - List all clubs
+- `GET /clubs/:id` - Club details
+- `GET /clubs/:id/events` - Club's events
+
+## Key Features Implementation
+
+### Role-Based Access Control
+- Student: View events, register/unregister
+- Club Admin: All student features + create/manage events for their club
+- Super Admin: Full access to all clubs and events
+
+### Real-time Features
+- Live event capacity updates
+- Registration notifications
+- Event reminders
+
+### Search & Filtering
+- Text search across event titles/descriptions
+- Date range filtering
+- Category-based filtering
+- Club-based filtering
+
+## Security Considerations
+- JWT token with short expiry and refresh mechanism
+- Input validation on both client and server
+- Rate limiting on API endpoints
+- Role-based authorization middleware
+- SQL injection prevention with parameterized queries
+
+## Performance Optimizations
+- Image caching for event photos
+- Pagination for event lists
+- Local data caching with cache invalidation
+- Lazy loading of non-critical data
+- Optimized database queries with proper indexing
